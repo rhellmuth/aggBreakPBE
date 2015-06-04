@@ -41,7 +41,7 @@ abProps['v_max'] = 2e3  #maximum number of monomers in an aggregate
 abProps['isGridUniform'] = False
 
 # PBE parameters:
-tmin, tmax, tstep = (0., 30., 0.05)
+tmin, tmax, tstep = (0., 60. , 0.5)
 
 
 abProps['t'] = np.arange(tmin, tmax, tstep) #time vector
