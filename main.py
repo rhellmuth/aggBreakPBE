@@ -41,11 +41,11 @@ abProps['v_max'] = 2e3  #maximum number of monomers in an aggregate
 abProps['isGridUniform'] = False
 
 # PBE parameters:
-tmin, tmax, tstep = (0., 60. , 0.5)
+tmin, tmax, tstep = (0., 30., 0.05)
 
 
 abProps['t'] = np.arange(tmin, tmax, tstep) #time vector
-abProps['G'] = 3350.                         #shear rate >= 0 (s-1)
+abProps['G'] = 2000.                         #shear rate >= 0 (s-1)
 
 # Aggregation parameters:
 abProps['eta']        = 0.30                #aggregation efficiency
@@ -54,7 +54,7 @@ abProps['aggPhysics'] = [
                          #'Brownian',
                          #'Sorensenian',
                          ]
-abProps['T']  = 310.                       # (K)temperature of the system
+abProps['T']  = 310.                       # (K) blood temperature
 abProps['mu'] = 1.25e-3                    # (Pa s) plasma viscosity
 
 # Breakup Parameters:
@@ -69,7 +69,7 @@ abProps['fragModel'] = 'binary'  #aggregate splits in half parts
 # regulates the standard deviation of the normal splitting mass distribution
 abProps['lambd'] = 1000 
 
-a = 3.7e9
+a = 5e11
 b = 2.0
 c = 3.0
 Gstar = (a*R_p**c)**(-1./b)

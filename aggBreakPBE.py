@@ -21,10 +21,9 @@ import time
 
 class aggBreak(object):
   def __init__(self, dictionary):
-    self.__dict__ = dictionary
+    readDict(self, dictionary)
     setCMD(self)
     setPBE(self)
-    aggBreak.printSetup(self)
     self.isSolved = False
     self.isDataProcessed = False
 
@@ -126,6 +125,7 @@ class aggBreak(object):
     print "|  |- t_s = {0:2g} s, t_d = {1:2g} s, Pe = {2:2g}".format(self.t_s,
                                                                        self.t_d,
                                                                        self.Pe)
+    print "|  |- eta = {0:2g}, t_a = {1:2g} s".format(self.eta, self.t_a)
     print "|"
     if self.isBreakupOn:
      print "|- Breakup: ON"
@@ -136,6 +136,7 @@ class aggBreak(object):
                                                                    self.b,
                                                                    self.c)
     print "|  |- t_b = {0:2g} s".format(self.t_b)
+    print "|"
     print "|- theta = {0:2g}".format(self.theta)
     print ""
 
@@ -232,14 +233,68 @@ class aggBreak(object):
       print "Saving output time series in " + outputFileName
       output_pddf_ts.to_csv(outputFileName)
 
+  def reset(self):
+    print "Clearing simulation results\n"
+    del self.C_list_ts
+      
+    print "Clearing processed data\n"
+    del self.t_dimLess_s
+    del self.t_dimLess_d
+    del self.t_dimLess_b
+    del self.G_ts
+    del self.tau_ts
+    del self.freeMono_ts
+    del self.M0_ts
+    del self.M1_ts
+    del self.M2_ts
+    del self.PPD_list_ts
+    del self.monoC_list_ts
+    del self.R_mean_ts
+    del self.R_rms_ts
+    del self.v_mean_ts
+    del self.PA_ts
+    del self.dCdt_list_ts
+
+    print "Reseting the system with new data\n"
+    setCMD(self)
+    setPBE(self)
+    aggBreak.printSetup(self)
+    self.isSolved = False
+    self.isDataProcessed = False
 
 #---------------------system initialization functions--------------------------#
 
+def readDict(self, dictionary):
+  self.saveFolder = dictionary['saveFolder']
+  self.jobName = dictionary['jobName']
+  self.jobDate = dictionary['jobDate']
+  self.jobTime = dictionary['jobTime']
+  
+  self.C_p = dictionary['C_p']
+  self.R_p = dictionary['R_p']
+  self.D_F = dictionary['D_F']
+  self.v_max = dictionary['v_max']
+  self.isGridUniform = dictionary['isGridUniform']
+  self.t = dictionary['t']
+  self.G = dictionary['G']
+  self.eta = dictionary['eta']
+  self.aggPhysics = dictionary['aggPhysics']
+  self.T = dictionary['T']
+  self.mu = dictionary['mu']
+  self.isBreakupOn = dictionary['isBreakupOn']
+  self.fragModel = dictionary['fragModel']
+  self.lambd = dictionary['lambd']
+  self.b = dictionary['b']
+  self.c = dictionary['c']
+  self.Gstar = dictionary['Gstar']
+  
+
+
 def setCMD(self):
-  """ n_bin:  number of bins  i = [0, 1, 2, ..., n]
-      chi:    interpolation operator
-      R_list: cluster radius of gyration
-      v_list: number of platelets in the cluster"""
+  self.n_bin = 0    #number of bins  i = [0, 1, 2, ..., n]
+  self.chi = []     #interpolation operator
+  self.R_list = []  #cluster radius of gyration
+  self.v_list = []  #number of monomers in each cluster
   
   if self.isGridUniform:
     #list of number of monomers in the cluster
@@ -247,7 +302,6 @@ def setCMD(self):
                              self.v_max,
                              self.v_max)
     self.n_bin  = int(len(self.v_list))
-    self.chi = []
   else:
     #geometric grid
     self.n_bin = int(np.floor(np.log2(self.v_max)) + 1)
@@ -257,8 +311,9 @@ def setCMD(self):
                              base=2.0)
     self.chi = interpolate(self.v_list)
   
-  self.v_max = int(self.v_list[-1])         #v_max label gets truncated
+  self.v_max  = int(self.v_list[-1])         #v_max label gets truncated
   self.R_list = radiusOfGyration(self.v_list, self.D_F, self.R_p)
+  self.V_p    = 4./3.*np.pi * self.R_p**3    #monomer volume
 
 
 def setPBE(self):
@@ -287,25 +342,28 @@ def setPBE(self):
     if 'Sorensenian' in self.aggPhysics:
       self.isSorensenAggOn = True
       self.k_d = Sorensenian_kernel(self.R_list, self.D_list, self.G)
-      self.t_d = 1.0 / (  4.0*np.pi \
-                        * 2.0 * self.D_list[0] \
-                        * 2.0 * self.R_p \
-                        * self.C_p) 
-    else:
-      self.k_d = Brownian_kernel(self.R_list, self.D_list)
       self.t_d = 1.0 / (  (1.0 + 1.05*self.G) \
                         * 4.0*np.pi \
                         * 2.0 * self.D_list[0] \
                         * 2.0 * self.R_p \
-                        * self.C_p) 
+                        * self.C_p)
+    else:
+      self.k_d = Brownian_kernel(self.R_list, self.D_list)
+      self.t_d = 1.0 / (  4.0*np.pi \
+                        * 2.0 * self.D_list[0] \
+                        * 2.0 * self.R_p \
+                        * self.C_p)  
 
   if 'shear'in self.aggPhysics:
     self.isAggregationOn = True
     self.isShearAggOn    = True
     self.k_s = shear_kernel(self.R_list, self.G)
-    self.t_s = 1.0 / (4./3. * self.G * (2.0 * self.R_p)**3 * self.C_p)
+    self.t_s = 1.0 / (  4./3. * self.eta * self.G \
+                      * (2.0 * self.R_p)**3 * self.C_p)
     
   self.k_c = self.k_s + self.k_d
+  self.Pe    = self.t_s / self.t_d
+  self.t_a   = 1.0 / (self.eta * (1.0 / self.t_s + 1.0 / self.t_d))
 #  else:
 #    print   "No valid aggregation physics was given! Aggregation is OFF!" \
 #          + " Try: 'shear', 'Brownian', or 'Sorensenian'."
@@ -341,13 +399,11 @@ def setPBE(self):
     self.k_b = breakup_kernel(self.R_list, 0.0, 1.0, 1.0, 1.0)
     self.fragDistr = np.zeros((self.n_bin, self.n_bin))
   
+  self.theta = self.t_a / self.t_b
+  
   #generate initial condition (no aggregates, just monomers)
   self.C0    = np.zeros(self.n_bin)
   self.C0[0] = self.C_p
-  
-  self.Pe    = self.t_s / self.t_d
-  self.t_a   = 1.0 / (self.eta * (1.0 / self.t_s + 1.0 / self.t_d))
-  self.theta = self.t_a / self.t_b
 
 #-----------------------------other functions----------------------------------#
 
