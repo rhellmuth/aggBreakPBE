@@ -5,6 +5,7 @@ from aggBreakPBE import *
 
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 
 #-Plot with LaTeX
@@ -74,6 +75,7 @@ c = 3.0
 Gstar = (a*R_p**c)**(-1./b)
 #Gstar = 1000.
 
+abProps['a'] = a
 abProps['b'] = b
 abProps['c'] = c
 abProps['Gstar'] = Gstar
@@ -112,7 +114,7 @@ plt.grid()
 plt.show()
 
 plt.plot(ab1.v_list, 100.*ab1.PPD_list_ts[-1], 'ko-')
-plt.axis([1,6,0, 80])
+plt.axis([1, 64, 0, 80])
 plt.xlabel('Number of Platelets in Cluster')
 plt.ylabel('Platelet Population Distribution, \\tilde{C} (\%)')
 plt.show()
@@ -177,9 +179,9 @@ ab3S.printSetup()
 ab3S.solve()
 ab3S.processData()
 
-lbl1 = "Shear alone, G = {0:3.0f}, Pe = {1:1.3f}".format(ab1.G, ab1.Pe)
-lbl3B = "Shear + Brownian, G = {0:3.0f}, Pe = {1:1.3f}".format(ab3B.G, ab3B.Pe)
-lbl3S = "Shear + Sorensenian, G = {0:3.0f}, Pe = {1:1.3f}".format(ab3S.G,
+lbl1 = "Shear alone, G = {0:3.0f}, Pe = {1:1.3g}".format(ab1.G, ab1.Pe)
+lbl3B = "Shear + Brownian, G = {0:3.0f}, Pe = {1:1.3g}".format(ab3B.G, ab3B.Pe)
+lbl3S = "Shear + Sorensenian, G = {0:3.0f}, Pe = {1:1.3g}".format(ab3S.G,
                                                                 ab3S.Pe)
 
 plt.plot(ab1.t, 100. * ab1.PA_ts, color='blue', label=lbl1)
@@ -233,18 +235,19 @@ ab4lt2 = aggBreak(abProps4lt2)
 ab4lt2.printSetup()
 ab4lt2.solve()
 ab4lt2.processData()
+time.sleep(1)
 
 
-lbl3S = "G = {0:3.0f}, G* = {2:3.0f}, Pe = {1:1.3f}, $\\theta$ = {3:.3g}".format(ab3S.G, ab3S.Pe, ab3S.Gstar, ab3S.theta)
-lbl4S = "G = {0:3.0f}, G* = {2:3.0f}, Pe = {1:1.3f}, $\\theta$ = {3:.3g}".format(ab4S.G, ab4S.Pe, ab4S.Gstar, ab4S.theta)
-lbl4lt1 = "G = {0:3.0f}, G* = {2:3.0f}, Pe = {1:1.3f}, $\\theta$ = {3:.3g}".format(ab4lt1.G, ab4lt1.Pe, ab4lt1.Gstar, ab4lt1.theta)
-lbl4lt2 = "G = {0:3.0f}, G* = {2:3.0f}, Pe = {1:1.3f}, $\\theta$ = {3:.3g}".format(ab4lt2.G, ab4lt2.Pe, ab4lt2.Gstar, ab4lt2.theta)
+lbl3S = "G = {0:3.0f}, G* = {2:3.0f}, Pe = {1:1.3g}, $\\theta$ = {3:.3g}".format(ab3S.G, ab3S.Pe, ab3S.Gstar, ab3S.theta)
+lbl4S = "G = {0:3.0f}, G* = {2:3.0f}, Pe = {1:1.3g}, $\\theta$ = {3:.3g}".format(ab4S.G, ab4S.Pe, ab4S.Gstar, ab4S.theta)
+lbl4lt1 = "G = {0:3.0f}, G* = {2:3.0f}, Pe = {1:1.3g}, $\\theta$ = {3:.3g}".format(ab4lt1.G, ab4lt1.Pe, ab4lt1.Gstar, ab4lt1.theta)
+lbl4lt2 = "G = {0:3.0f}, G* = {2:3.0f}, Pe = {1:1.3g}, $\\theta$ = {3:.3g}".format(ab4lt2.G, ab4lt2.Pe, ab4lt2.Gstar, ab4lt2.theta)
 
 
 plt.plot(ab3S.t, 100. * ab3S.PA_ts, color='blue', label=lbl3S)
 plt.plot(ab4S.t, 100. * ab4S.PA_ts, color='red', label=lbl4S)
 plt.plot(ab4lt1.t, 100. * ab4lt1.PA_ts, color='green', label=lbl4lt1)
-plt.plot(ab4S.t, 100. * ab4S.PA_ts, color='magenta', label=lbl4lt2)
+plt.plot(ab4lt2.t, 100. * ab4lt2.PA_ts, color='magenta', label=lbl4lt2)
 plt.legend(loc=4)
 plt.ylabel('Fraction of Aggregated Platelets, PA (\%)')
 plt.xlabel('Time, t (s)')
@@ -260,3 +263,33 @@ plt.xlabel('Time, t (s)')
 plt.show()
 
 
+plt.loglog(ab3S.v_list/ab3S.v_mean_ts[-1], ab3S.PPD_list_ts[-1],
+           "bs-", label=lbl3S)
+plt.loglog(ab4S.v_list/ab4S.v_mean_ts[-1], ab4S.PPD_list_ts[-1],
+           "ro--", label=lbl4S)
+plt.loglog(ab4lt1.v_list/ab4lt1.v_mean_ts[-1], ab4lt1.PPD_list_ts[-1],
+           "gs-", label=lbl4lt1)
+plt.loglog(ab4lt2.v_list/ab4lt2.v_mean_ts[-1], ab4lt2.PPD_list_ts[-1],
+           "mo--", label=lbl4lt2)
+plt.xlabel('Normalized Number of Platelets per Aggregate, v / \\textlangle v \\textrangle')
+plt.legend(loc=3)
+plt.ylabel('Platelet Population Distribution, \\tilde{C} (\%)')
+plt.ylim(ymin=1e-6)
+plt.xlim(1e-3, 1e3)
+plt.grid()
+plt.show()
+
+plt.plot(ab3S.v_list, 100.*ab3S.PPD_list_ts[-1], "bs-", label=lbl3S)
+plt.plot(ab4S.v_list, 100.*ab4S.PPD_list_ts[-1], "ro--", label=lbl4S)
+plt.plot(ab4lt1.v_list, 100.*ab4lt1.PPD_list_ts[-1], "gs-", label=lbl4lt1)
+plt.plot(ab4lt2.v_list, 100.*ab4lt2.PPD_list_ts[-1], "mo--", label=lbl4lt2)
+plt.axis([1, 64, 0, 80])
+plt.legend(loc=1)
+plt.xlabel('Number of Platelets in Cluster')
+plt.ylabel('Platelet Population Distribution, \\tilde{C} (\%)')
+plt.show()
+
+
+
+del abProps3S, abProps4lt1, abProps4lt2
+del ab3S, ab4S, ab4lt1, ab4lt2

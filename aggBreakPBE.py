@@ -98,6 +98,7 @@ class aggBreak(object):
           self.dCdt_list_ts[i] = PBE_nonuniformGrid(Ci, ti, self)
           
       self.isDataProcessed = True
+      print "Done!"
     else:
       print "Cannot process data before solving the PBE!\n"
 
@@ -107,10 +108,9 @@ class aggBreak(object):
       print "- Grid: UNIFORM"
     else:
       print "|- Grid: GEOMETRIC"
-    print   "|  |- n_bin = {0:d}, v_max = {1:d}, R_p = {2:3g} m".format(
-                                                                     self.n_bin,
-                                                                     self.v_max,
-                                                                     self.R_p)
+    print   "|  |- n_bin = {0:d}, v_max = {1:d}".format(self.n_bin, self.v_max)
+    print   "|  |- C_p = {0:2g} count/m3, R_p = {1:3g} m".format(self.C_p,
+                                                                 self.R_p)
     print "|"
     print "|- G = {0:2g} s-1".format(self.G)
     print "|"
@@ -131,13 +131,14 @@ class aggBreak(object):
      print "|- Breakup: ON"
     else:
      print "|- Breakup: OFF"
-    print "|  |- G* = {0:2g} s, b = {1:2g} s-1, c = {2:2g}".format(
+    print "|  |- G* = {0:2g} s-1, a = {1:2g}, b = {2:2g}, c = {3:2g}".format(
                                                                    self.Gstar,
+                                                                   self.a,
                                                                    self.b,
                                                                    self.c)
     print "|  |- t_b = {0:2g} s".format(self.t_b)
     print "|"
-    print "|- theta = {0:2g}".format(self.theta)
+    print "|- theta = {0:2g}, K_ab = {1:2g}".format(self.theta, self.K_ab)
     print ""
 
     
@@ -178,10 +179,12 @@ class aggBreak(object):
                              'Pe':self.Pe,
                              't_a':self.t_a,
                              'isBreakupOn':self.isBreakupOn,
-                             'b':self.b, 'c':self.c, 'Gstar':self.Gstar,
+                             'a':self.a, 'b':self.b, 'c':self.c,
+                             'Gstar':self.Gstar,
                              'lambd':self.lambd,
                              't_b':self.t_b,
-                             'theta':self.theta})
+                             'theta':self.theta,
+                             'K_ab':self.K_ab})
                              
       inputFileName = filePrefix + 'inputParameters.csv'
       print "Saving input in " + inputFileName
@@ -284,6 +287,7 @@ def readDict(self, dictionary):
   self.isBreakupOn = dictionary['isBreakupOn']
   self.fragModel = dictionary['fragModel']
   self.lambd = dictionary['lambd']
+  self.a = dictionary['a']
   self.b = dictionary['b']
   self.c = dictionary['c']
   self.Gstar = dictionary['Gstar']
@@ -345,13 +349,12 @@ def setPBE(self):
       self.t_d = 1.0 / (  (1.0 + 1.05*self.G) \
                         * 4.0*np.pi \
                         * 2.0 * self.D_list[0] \
-                        * 2.0 * self.R_p \
-                        * self.C_p)
+                        * 2.0 * self.R_p * self.C_p)
     else:
       self.k_d = Brownian_kernel(self.R_list, self.D_list)
       self.t_d = 1.0 / (  4.0*np.pi \
-                        * 2.0 * self.D_list[0] \
-                        * 2.0 * self.R_p \
+                        * (2.0 * self.D_list[0]) \
+                        * (2.0 * self.R_p) \
                         * self.C_p)  
 
   if 'shear'in self.aggPhysics:
@@ -359,10 +362,11 @@ def setPBE(self):
     self.isShearAggOn    = True
     self.k_s = shear_kernel(self.R_list, self.G)
     self.t_s = 1.0 / (  4./3. * self.eta * self.G \
-                      * (2.0 * self.R_p)**3 * self.C_p)
+                      * (2.0 * self.R_p)**3. \
+                      * self.C_p)
     
   self.k_c = self.k_s + self.k_d
-  self.Pe    = self.t_s / self.t_d
+  self.Pe    = self.t_d / self.t_s
   self.t_a   = 1.0 / (self.eta * (1.0 / self.t_s + 1.0 / self.t_d))
 #  else:
 #    print   "No valid aggregation physics was given! Aggregation is OFF!" \
@@ -400,6 +404,7 @@ def setPBE(self):
     self.fragDistr = np.zeros((self.n_bin, self.n_bin))
   
   self.theta = self.t_a / self.t_b
+  self.K_ab  = 1./self.theta 
   
   #generate initial condition (no aggregates, just monomers)
   self.C0    = np.zeros(self.n_bin)
@@ -428,11 +433,11 @@ Garrick, Lehtinen & Zachariah (2006)."""
   for k in xrange(1, n_bin): # no aggregation to the last bin
     if k < n_bin -1:
       chi[:,:,k] = np.where((Vsum <= v_list[k+1]) & (Vsum >= v_list[k]),
-	                          (v_list[k+1] - Vsum) / (v_list[k+1] - v_list[k]),
-	                          chi[:,:,k] )
+                            (v_list[k+1] - Vsum) / (v_list[k+1] - v_list[k]),
+                            chi[:,:,k] )
     chi[:,:,k] = np.where((Vsum <= v_list[k]) & (Vsum >= v_list[k-1]),
-		                      (Vsum - v_list[k-1]) / (v_list[k] - v_list[k-1]),
-		                      chi[:,:,k])
+                          (Vsum - v_list[k-1]) / (v_list[k] - v_list[k-1]),
+                          chi[:,:,k])
   return chi
         
 #----------------------------kernel functions----------------------------------#
@@ -529,48 +534,45 @@ def normalFrag(n_bin, lambd = 1):
 
     return massDistr
 
-#def nonunifNormalFrag():
-#    massDistr = np.zeros((n_bin, n_bin))   
-#    nIntP = 500 #number of integration points
-#    for j in xrange(1, n_bin):
-#        p = np.zeros(n_bin)
-#        std = (v_list[j] / 2) / float(lambd)
-#        mean = v_list[j] / 2
-#        N = stats.norm(loc=mean, scale=std)
-#        
-#        for i in xrange(j+1):
-#          if i > 0: #don't do this if i == 0
-#            #chi is the interpolation vector
-#            chi = np.linspace(0.,
-#                              1.,
-#                              nIntP)
-#            ps  = 2*N.pdf(np.linspace(v_list[i-1],
-#                                    v_list[i],
-#                                    nIntP))
-#            x = np.linspace(v_list[i-1], v_list[i], nIntP)
-#            #Simpson integration of vector chi * ps
-#            p[i] += si.simps(chi * ps, x)
+def nonunifNormalFrag(n_bin, lambd):
+    massDistr = np.zeros((n_bin, n_bin))   
+    nIntP = 500 #number of integration points
+    for j in xrange(1, n_bin):
+        p = np.zeros(n_bin)
+        std = (v_list[j] / 2) / float(lambd)
+        mean = v_list[j] / 2
+        N = stats.norm(loc=mean, scale=std)
+        
+        for i in xrange(j+1):
+          if i > 0: #don't do this if i == 0
+            #chi is the interpolation vector
+            chi = np.linspace(0.,
+                              1.,
+                              nIntP)
+            ps  = 2*N.pdf(np.linspace(v_list[i-1],
+                                    v_list[i],
+                                    nIntP))
+            x = np.linspace(v_list[i-1], v_list[i], nIntP)
+            #Simpson integration of vector chi * ps
+            p[i] += si.simps(chi * ps, x)
 
-#          if i < n_bin-1: #don't do this is i == n_bin
-#            chi = np.linspace(1.,
-#                              0.,
-#                              nIntP)
-#            ps  = 2*N.pdf(np.linspace(v_list[i],
-#                                    v_list[i+1],
-#                                    nIntP))
-#            x = np.linspace(v_list[i], v_list[i+1], nIntP)
-#            p[i] += si.simps(chi * ps, x)
+          if i < n_bin-1: #don't do this is i == n_bin
+            chi = np.linspace(1.,
+                              0.,
+                              nIntP)
+            ps  = 2*N.pdf(np.linspace(v_list[i],
+                                    v_list[i+1],
+                                    nIntP))
+            x = np.linspace(v_list[i], v_list[i+1], nIntP)
+            p[i] += si.simps(chi * ps, x)
 
-##          if v_list[i] == v_list[j]/2: #if it splits in half -> two daughters
-##            p[i] += 2*(N.cdf(v_list[i] + 1) - N.cdf(v_list[i] - 1)) / 2.0
-#        # to regulate the distribution to the probability p[i<0] = and sum(p[i>0]) = 1      
-#        sump = p.sum()
-#        print sump
-#        if sump != 0:
-#          par = 2.0 / sump
-#        for i in xrange(n_bin):
-#          massDistr[i][j] =  par * p[i]
-#    return massDistr
+        # to regulate the distribution to the probability p[i<0] = and sum(p[i>0]) = 1      
+        sump = p.sum()
+        if sump != 0:
+          par = 2.0 / sump
+        for i in xrange(n_bin):
+          massDistr[i][j] =  par * p[i]
+    return massDistr
 
 
 def uniformFrag(n_bin):
@@ -632,7 +634,7 @@ def uniformFrag(n_bin):
 
 def PBE_uniformGrid(y, t, self):
   aggregation = np.zeros(self.n_bin)
-  breakage    = np.zeros(self.n_bin)
+  breakup    = np.zeros(self.n_bin)
 
   # Smoluchowski (1917)
   if self.isAggregationOn:
@@ -647,7 +649,7 @@ def PBE_uniformGrid(y, t, self):
     creation = 0.5 * creation
 
     aggregation = self.eta * (creation + destruction)
-	
+
   # Pandya & Spielman (1982)
   if self.isBreakupOn:
     creation    = np.zeros(self.n_bin)
@@ -656,14 +658,14 @@ def PBE_uniformGrid(y, t, self):
     destruction = -self.k_b * y
     creation = np.dot(self.fragDistr, self.k_b * y)
 
-    breakage = creation + destruction
+    breakup = creation + destruction
 
-  return aggregation + breakage
+  return aggregation + breakup
 
 
 def PBE_nonuniformGrid(y, t, self):
   aggregation = np.zeros(self.n_bin)
-  breakage    = np.zeros(self.n_bin)
+  breakup    = np.zeros(self.n_bin)
 
   # aggregation PBE by Smoluchowski (1917)
   creation    = np.zeros(self.n_bin)
@@ -677,8 +679,8 @@ def PBE_nonuniformGrid(y, t, self):
     destruction = -np.dot(self.k_c, y) * y  
 
     aggregation = self.eta * (creation + destruction)
-	
-  # breakage PBE by Pandya & Spielman (1982)
+
+  # breakup PBE by Pandya & Spielman (1982)
   if self.isBreakupOn:
     creation    = np.zeros(self.n_bin)
     destruction = np.zeros(self.n_bin)
@@ -686,9 +688,9 @@ def PBE_nonuniformGrid(y, t, self):
     destruction = -self.k_b * y
     creation    = np.dot(self.fragDistr, self.k_b * y)
 
-    breakage = creation + destruction
-	
-  return aggregation + breakage
+    breakup = creation + destruction
+
+  return aggregation + breakup
 
 
 #--------------------------Data process functions------------------------------#
